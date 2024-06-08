@@ -3,10 +3,17 @@
 # Dependencies: imagemagick, i3lock-color-git, scrot, wmctrl (optional)
 set -o errexit -o noclobber -o nounset
 
+# if we have ImageMagick newer than 7.0, we need to use magick instead of convert
+if command -v magick &>/dev/null; then
+    convert="magick"
+else
+    convert="convert"
+fi
+
 hue=(-level "0%,100%,0.6")
 effect=(-filter Gaussian -resize 20% -define "filter:sigma=1.5" -resize 500.5%)
 # default system sans-serif font
-font=$(convert -list font | awk "{ a[NR] = \$2 } /family: $(fc-match sans -f "%{family}\n")/ { print a[NR-1]; exit }")
+font=$($convert -list font | awk "{ a[NR] = \$2 } /family: $(fc-match sans -f "%{family}\n")/ { print a[NR-1]; exit }")
 image=$(mktemp --suffix=.png)
 shot=(import -silent -window root)
 desktop=""
@@ -82,7 +89,7 @@ while true ; do
             esac ;;
         -t|--text) text=$2 ; shift 2 ;;
         -l|--listfonts)
-	    convert -list font | awk -F: '/Font: / { print $2 }' | sort -du | command -- ${PAGER:-less}
+	    $convert -list font | awk -F: '/Font: / { print $2 }' | sort -du | command -- ${PAGER:-less}
 	    exit 0 ;;
 	-n|--nofork) i3lock_cmd+=(--nofork) ; shift ;;
         --) shift; shot_custom=true; break ;;
@@ -98,7 +105,7 @@ command -- "${shot[@]}" "$image"
 
 value="60" #brightness value to compare to
 
-color=$(convert "$image" -gravity center -crop 100x100+0+0 +repage -colorspace hsb \
+color=$($convert "$image" -gravity center -crop 100x100+0+0 +repage -colorspace hsb \
     -resize 1x1 txt:- | awk -F '[%$]' 'NR==2{gsub(",",""); printf "%.0f\n", $(NF-1)}');
 
 if [[ $color -gt $value ]]; then #white background image and black text
@@ -121,7 +128,7 @@ else #black
         "--date-color=00000000" "--layout-color=00000000")
 fi
 
-convert "$image" "${hue[@]}" "${effect[@]}" -font "$font" -pointsize 26 -fill "$bw" -gravity center \
+$convert "$image" "${hue[@]}" "${effect[@]}" -font "$font" -pointsize 26 -fill "$bw" -gravity center \
     -annotate +0+160 "$text" "$icon" -gravity center -composite "$image"
 
 # If invoked with -d/--desktop, we'll attempt to minimize all windows (ie. show
